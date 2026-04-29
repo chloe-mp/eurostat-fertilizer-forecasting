@@ -1,5 +1,7 @@
 # European Fertilizer Forecasting Pipeline
 
+[![CI](https://github.com/chloe-mp/eurostat-fertilizer-forecasting/actions/workflows/ci.yml/badge.svg)](https://github.com/chloe-mp/eurostat-fertilizer-forecasting/actions/workflows/ci.yml) [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff) [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
+
 End-to-end ML pipeline forecasting nitrogen and phosphorus fertilizer
 usage across EU-27, built on public Eurostat data.
 
