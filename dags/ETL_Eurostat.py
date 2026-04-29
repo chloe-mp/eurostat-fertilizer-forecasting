@@ -1,3 +1,10 @@
+"""ETL DAG for Eurostat fertilizer datasets.
+
+Fetches mineral fertilizer use (aei_fm_usefert) and Gross Nutrient Balance
+(aei_pr_gnb), parses Eurostat's JSON-stat 1.0 format, loads into PostgreSQL
+via COPY, then merges into a unified per-country/nutrient/year table.
+"""
+
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -8,6 +15,7 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
+from lib.eurostat_parser import parse_eurostat_json
 
 default_args = {
     "owner": "chloe",
@@ -18,7 +26,7 @@ default_args = {
 dag = DAG(
     dag_id="engrais_etl_eurostat_complet",
     default_args=default_args,
-    description="ETL Eurostat : engrais minéraux + bilan nutritif (incluant organiques)",
+    description="ETL Eurostat: mineral fertilizers + nutrient balance (incl. organic).",
     schedule_interval="@weekly",
     start_date=datetime(2026, 1, 13),
     catchup=False,
@@ -30,13 +38,13 @@ TMP_GNB_PATH = Path("/opt/airflow/data/eurostat_gnb_latest.csv")
 
 
 def fetch_eurostat_dataset(dataset_code, tmp_path):
-    """
-    Fetch données Eurostat via l'API JSON (plus stable que le TSV bulk).
-    """
-    # URL de l'API JSON 1.0
-    url = f"https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/{dataset_code}"
+    """Fetch an Eurostat dataset via the JSON statistics API.
 
-    # Paramètres pour éviter les erreurs 406/400
+    Parses the JSON-stat 1.0 response (logic delegated to
+    lib.eurostat_parser), reshapes columns to match downstream SQL
+    schemas, and writes a CSV to disk for COPY-based loading.
+    """
+    url = f"https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/{dataset_code}"
     params = {"format": "JSON", "lang": "en"}
 
     try:
@@ -46,40 +54,11 @@ def fetch_eurostat_dataset(dataset_code, tmp_path):
         json_data = response.json()
 
         # --- PARSING DU JSON EUROSTAT ---
-        # Eurostat sépare les dimensions (pays, temps, etc.) des valeurs
-        values = json_data["value"]  # Dictionnaire { "0": 12.5, "1": 14.2 ... }
-        dimensions = json_data["dimension"]
-
-        # Récupération des listes d'IDs pour chaque dimension
-        # Attention : l'ordre des dimensions varie selon le dataset
-        id_list = json_data["id"]  # ex: ['freq', 'nutrient', 'unit', 'geo', 'time']
-
-        # Préparation des labels pour chaque dimension
-        dim_map = {}
-        for d in id_list:
-            dim_map[d] = list(dimensions[d]["category"]["index"].keys())
-
-        # Reconstruction des lignes
-        rows = []
-        for idx_str, val in values.items():
-            idx = int(idx_str)
-
-            # Calcul des index pour retrouver les dimensions
-            current_idx = idx
-            row = {"valeur": val}
-
-            # Cette boucle permet de retrouver quel pays/année correspond à la valeur
-            for d in reversed(id_list):
-                size = len(dim_map[d])
-                row[d] = dim_map[d][current_idx % size]
-                current_idx //= size
-            rows.append(row)
-
-        # Création du DataFrame Polars
+        # Logique de parsing extraite dans lib/eurostat_parser.py pour testabilité
+        rows = parse_eurostat_json(json_data)
         df_long = pl.DataFrame(rows)
 
         # --- ADAPTATION AU FORMAT DE LA BASE DE DONNÉES ---
-        # On renomme pour coller aux tables SQL existantes
         if dataset_code == "aei_fm_usefert":
             df_long = df_long.select(
                 [
@@ -87,7 +66,7 @@ def fetch_eurostat_dataset(dataset_code, tmp_path):
                     pl.col("geo").alias("pays"),
                     pl.col("nutrient").alias("nutriment"),
                     pl.col("valeur").cast(pl.Float64),
-                    pl.lit("KG_HA").alias("unite"),  # On force l'unité ici
+                    pl.lit("KG_HA").alias("unite"),
                 ]
             )
 
@@ -99,16 +78,15 @@ def fetch_eurostat_dataset(dataset_code, tmp_path):
                     pl.col("nutrient").alias("nutriment"),
                     pl.col("indic_ag").alias("indicateur"),
                     pl.col("valeur").cast(pl.Float64),
-                    pl.lit("KG_HA").alias("unite"),  # On force l'unité ici
+                    pl.lit("KG_HA").alias("unite"),
                 ]
             )
 
-        # Sauvegarde en CSV pour le load_mineral / load_gnb (COPY command)
         df_long.write_csv(tmp_path)
         logging.info(f"{dataset_code}: {df_long.shape[0]} lignes sauvegardées.")
 
     except Exception as e:
-        logging.error(f"Erreur fetch {dataset_code}: {str(e)}")
+        logging.error(f"Erreur fetch {dataset_code}: {e!s}")
         raise
 
 
