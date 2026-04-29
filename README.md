@@ -52,7 +52,7 @@ MAE ~1.5 t) and the EU-27 aggregate side-by-side (MAE ~422k t).
 The project follows a **medallion lakehouse** pattern (Bronze / Silver
 / Gold) orchestrated with Apache Airflow on a distributed Docker stack.
 
-┌────────────────────────────────────────────────────┐
+    ┌────────────────────────────────────────────────────┐
     │              Apache Airflow                        │
     │  (CeleryExecutor + Redis + Postgres metadata DB)   │
     └──────────────────┬─────────────────────────────────┘
@@ -141,7 +141,7 @@ The project follows a **medallion lakehouse** pattern (Bronze / Silver
 - Models serialized to disk (`models/prophet/*.pkl`) for
   reproducibility and offline inspection.
 
-### 📊 Dashboard (`dashboard_engrais.py`)
+### Dashboard (`dashboard_engrais.py`)
 
 - Streamlit + Plotly interactive UI.
 - Filters by country, nutrient, indicator.
