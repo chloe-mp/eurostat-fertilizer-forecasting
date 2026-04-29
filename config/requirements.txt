@@ -1,0 +1,9 @@
+google-api-core
+google-cloud-core
+google-cloud-documentai
+polars
+gcsfs
+google-api-python-client
+google-auth
+anthropic
+python-dotenv

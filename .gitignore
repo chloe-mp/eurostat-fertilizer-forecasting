@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# Airflow runtime
+logs/
+data/
+models/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Secrets / env
+.env
+.env.local
+.env.*.local
+google_credentials.json
+*credentials*.json
+
+# ML artifacts (binaires lourds)
+*.pkl
+*.h5
+*.pt
+*.ckpt
