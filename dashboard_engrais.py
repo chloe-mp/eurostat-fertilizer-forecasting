@@ -3,9 +3,9 @@ Dashboard Streamlit — Prévisions d'utilisation des engrais en Europe
 Données : Eurostat | Modèle : Prophet
 """
 
-import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+import streamlit as st
 from sqlalchemy import create_engine, text
 
 # ── Configuration page ────────────────────────────────────────────────────────
@@ -17,7 +17,8 @@ st.set_page_config(
 )
 
 # ── CSS personnalisé ──────────────────────────────────────────────────────────
-st.markdown("""
+st.markdown(
+    """
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap');
 
@@ -121,47 +122,61 @@ st.markdown("""
     margin-bottom: 1rem;
   }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
+
 
 # ── Connexion DB ──────────────────────────────────────────────────────────────
 @st.cache_resource
 def get_engine():
-    return create_engine(
-        "postgresql+psycopg2://airflow:airflow@localhost:5432/airflow"
-    )
+    return create_engine("postgresql+psycopg2://airflow:airflow@localhost:5432/airflow")
+
 
 @st.cache_data(ttl=300)
 def load_data():
     engine = get_engine()
     with engine.connect() as conn:
-        df = pd.read_sql(text("""
+        df = pd.read_sql(
+            text("""
             SELECT annee, pays, nutriment, indicateur,
                    yhat, yhat_lower, yhat_upper,
                    is_forecast, is_negative
             FROM eurostat_predictions
             ORDER BY pays, nutriment, indicateur, annee
-        """), conn)
+        """),
+            conn,
+        )
     return df
+
 
 @st.cache_data(ttl=300)
 def load_metrics():
     engine = get_engine()
     with engine.connect() as conn:
-        df = pd.read_sql(text("""
+        df = pd.read_sql(
+            text("""
             SELECT pays, nutriment, indicateur, mae, rmse, coverage, n_points
             FROM eurostat_model_metrics
             ORDER BY mae ASC
-        """), conn)
+        """),
+            conn,
+        )
     return df
+
 
 @st.cache_data(ttl=300)
 def load_run_log():
     engine = get_engine()
     with engine.connect() as conn:
-        df = pd.read_sql(text("""
+        df = pd.read_sql(
+            text("""
             SELECT * FROM eurostat_run_log ORDER BY run_at DESC LIMIT 1
-        """), conn)
+        """),
+            conn,
+        )
     return df
+
 
 # ── Chargement des données ────────────────────────────────────────────────────
 try:
@@ -178,25 +193,49 @@ except Exception as e:
 # ── Labels lisibles ───────────────────────────────────────────────────────────
 NUTRIMENT_LABELS = {"N": "Azote (N)", "P": "Phosphore (P)"}
 INDICATEUR_LABELS = {
-    "mineral":       "Engrais minéraux",
-    "organique":     "Engrais organiques",
-    "bilan_inputs":  "Bilan — Entrées",
+    "mineral": "Engrais minéraux",
+    "organique": "Engrais organiques",
+    "bilan_inputs": "Bilan — Entrées",
     "bilan_outputs": "Bilan — Sorties",
-    "bilan_net":     "Bilan net",
+    "bilan_net": "Bilan net",
 }
 PAYS_EU = {
-    "AT": "Autriche", "BE": "Belgique", "BG": "Bulgarie", "CY": "Chypre",
-    "CZ": "Tchéquie", "DE": "Allemagne", "DK": "Danemark", "EE": "Estonie",
-    "EL": "Grèce", "ES": "Espagne", "FI": "Finlande", "FR": "France",
-    "HR": "Croatie", "HU": "Hongrie", "IE": "Irlande", "IT": "Italie",
-    "LT": "Lituanie", "LU": "Luxembourg", "LV": "Lettonie", "MT": "Malte",
-    "NL": "Pays-Bas", "PL": "Pologne", "PT": "Portugal", "RO": "Roumanie",
-    "SE": "Suède", "SI": "Slovénie", "SK": "Slovaquie",
-    "NO": "Norvège", "CH": "Suisse", "UK": "Royaume-Uni",
+    "AT": "Autriche",
+    "BE": "Belgique",
+    "BG": "Bulgarie",
+    "CY": "Chypre",
+    "CZ": "Tchéquie",
+    "DE": "Allemagne",
+    "DK": "Danemark",
+    "EE": "Estonie",
+    "EL": "Grèce",
+    "ES": "Espagne",
+    "FI": "Finlande",
+    "FR": "France",
+    "HR": "Croatie",
+    "HU": "Hongrie",
+    "IE": "Irlande",
+    "IT": "Italie",
+    "LT": "Lituanie",
+    "LU": "Luxembourg",
+    "LV": "Lettonie",
+    "MT": "Malte",
+    "NL": "Pays-Bas",
+    "PL": "Pologne",
+    "PT": "Portugal",
+    "RO": "Roumanie",
+    "SE": "Suède",
+    "SI": "Slovénie",
+    "SK": "Slovaquie",
+    "NO": "Norvège",
+    "CH": "Suisse",
+    "UK": "Royaume-Uni",
 }
+
 
 def pays_label(code):
     return PAYS_EU.get(code, code)
+
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -221,9 +260,11 @@ with st.sidebar:
         format_func=lambda x: NUTRIMENT_LABELS[x],
     )
 
-    indicateurs_dispo = sorted(df[
-        (df["pays"] == pays_selected) & (df["nutriment"] == nutriment_selected)
-    ]["indicateur"].unique())
+    indicateurs_dispo = sorted(
+        df[(df["pays"] == pays_selected) & (df["nutriment"] == nutriment_selected)][
+            "indicateur"
+        ].unique()
+    )
 
     indicateur_selected = st.selectbox(
         "Indicateur",
@@ -269,9 +310,9 @@ st.markdown("<hr>", unsafe_allow_html=True)
 
 # ── Filtrage ──────────────────────────────────────────────────────────────────
 df_serie = df[
-    (df["pays"] == pays_selected) &
-    (df["nutriment"] == nutriment_selected) &
-    (df["indicateur"] == indicateur_selected)
+    (df["pays"] == pays_selected)
+    & (df["nutriment"] == nutriment_selected)
+    & (df["indicateur"] == indicateur_selected)
 ].copy()
 
 df_hist = df_serie[~df_serie["is_forecast"]].sort_values("annee")
@@ -282,14 +323,16 @@ if not df_prev.empty and not df_hist.empty:
     val_last_hist = df_hist["yhat"].iloc[-1]
     val_last_prev = df_prev["yhat"].iloc[-1]
     annee_last_prev = int(df_prev["annee"].iloc[-1])
-    delta_pct = ((val_last_prev - val_last_hist) / abs(val_last_hist) * 100) if val_last_hist != 0 else 0
+    delta_pct = (
+        ((val_last_prev - val_last_hist) / abs(val_last_hist) * 100) if val_last_hist != 0 else 0
+    )
     has_negative = df_prev["is_negative"].any()
 
     # Métriques modèle pour cette série
     met_row = df_metrics[
-        (df_metrics["pays"] == pays_selected) &
-        (df_metrics["nutriment"] == nutriment_selected) &
-        (df_metrics["indicateur"] == indicateur_selected)
+        (df_metrics["pays"] == pays_selected)
+        & (df_metrics["nutriment"] == nutriment_selected)
+        & (df_metrics["indicateur"] == indicateur_selected)
     ]
 
     k1, k2, k3, k4 = st.columns(4)
@@ -333,39 +376,45 @@ fig = go.Figure()
 
 # Intervalle de confiance (prévisions)
 if show_ci and not df_prev.empty:
-    fig.add_trace(go.Scatter(
-        x=pd.concat([df_prev["annee"], df_prev["annee"][::-1]]),
-        y=pd.concat([df_prev["yhat_upper"], df_prev["yhat_lower"][::-1]]),
-        fill="toself",
-        fillcolor="rgba(46, 125, 82, 0.12)",
-        line=dict(color="rgba(0,0,0,0)"),
-        name="Intervalle de confiance 80%",
-        hoverinfo="skip",
-    ))
+    fig.add_trace(
+        go.Scatter(
+            x=pd.concat([df_prev["annee"], df_prev["annee"][::-1]]),
+            y=pd.concat([df_prev["yhat_upper"], df_prev["yhat_lower"][::-1]]),
+            fill="toself",
+            fillcolor="rgba(46, 125, 82, 0.12)",
+            line=dict(color="rgba(0,0,0,0)"),
+            name="Intervalle de confiance 80%",
+            hoverinfo="skip",
+        )
+    )
 
 # Intervalle de confiance (historique)
 if show_ci and not df_hist.empty:
-    fig.add_trace(go.Scatter(
-        x=pd.concat([df_hist["annee"], df_hist["annee"][::-1]]),
-        y=pd.concat([df_hist["yhat_upper"], df_hist["yhat_lower"][::-1]]),
-        fill="toself",
-        fillcolor="rgba(100, 100, 100, 0.07)",
-        line=dict(color="rgba(0,0,0,0)"),
-        name="Incertitude historique",
-        hoverinfo="skip",
-    ))
+    fig.add_trace(
+        go.Scatter(
+            x=pd.concat([df_hist["annee"], df_hist["annee"][::-1]]),
+            y=pd.concat([df_hist["yhat_upper"], df_hist["yhat_lower"][::-1]]),
+            fill="toself",
+            fillcolor="rgba(100, 100, 100, 0.07)",
+            line=dict(color="rgba(0,0,0,0)"),
+            name="Incertitude historique",
+            hoverinfo="skip",
+        )
+    )
 
 # Ligne historique
 if not df_hist.empty:
-    fig.add_trace(go.Scatter(
-        x=df_hist["annee"],
-        y=df_hist["yhat"],
-        mode="lines+markers",
-        name="Données historiques",
-        line=dict(color="#1C3A2F", width=2.5),
-        marker=dict(size=6, color="#1C3A2F"),
-        hovertemplate="<b>%{x}</b><br>%{y:,.0f} tonnes<extra>Historique</extra>",
-    ))
+    fig.add_trace(
+        go.Scatter(
+            x=df_hist["annee"],
+            y=df_hist["yhat"],
+            mode="lines+markers",
+            name="Données historiques",
+            line=dict(color="#1C3A2F", width=2.5),
+            marker=dict(size=6, color="#1C3A2F"),
+            hovertemplate="<b>%{x}</b><br>%{y:,.0f} tonnes<extra>Historique</extra>",
+        )
+    )
 
 # Ligne de prévision
 if not df_prev.empty:
@@ -377,15 +426,17 @@ if not df_prev.empty:
         raccord_x = list(df_prev["annee"])
         raccord_y = list(df_prev["yhat"])
 
-    fig.add_trace(go.Scatter(
-        x=raccord_x,
-        y=raccord_y,
-        mode="lines+markers",
-        name="Prévisions Prophet",
-        line=dict(color="#2E7D52", width=2.5, dash="dot"),
-        marker=dict(size=7, color="#2E7D52", symbol="diamond"),
-        hovertemplate="<b>%{x}</b><br>%{y:,.0f} tonnes<extra>Prévision</extra>",
-    ))
+    fig.add_trace(
+        go.Scatter(
+            x=raccord_x,
+            y=raccord_y,
+            mode="lines+markers",
+            name="Prévisions Prophet",
+            line=dict(color="#2E7D52", width=2.5, dash="dot"),
+            marker=dict(size=7, color="#2E7D52", symbol="diamond"),
+            hovertemplate="<b>%{x}</b><br>%{y:,.0f} tonnes<extra>Prévision</extra>",
+        )
+    )
 
 # Ligne verticale séparation historique/prévision
 if not df_hist.empty and not df_prev.empty:
@@ -457,7 +508,9 @@ if show_metrics and not df_metrics.empty:
     df_top["N points"] = df_top["n_points"]
 
     st.dataframe(
-        df_top[["Pays", "Nutriment", "Indicateur", "MAE (t)", "RMSE (t)", "Couverture", "N points"]],
+        df_top[
+            ["Pays", "Nutriment", "Indicateur", "MAE (t)", "RMSE (t)", "Couverture", "N points"]
+        ],
         use_container_width=True,
         hide_index=True,
     )

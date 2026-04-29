@@ -1,23 +1,24 @@
+import logging
 from datetime import datetime, timedelta
+
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
-import logging
 
 default_args = {
-    'owner': 'chloe',
-    'retries': 3,
-    'retry_delay': timedelta(minutes=5),
+    "owner": "chloe",
+    "retries": 3,
+    "retry_delay": timedelta(minutes=5),
 }
 
 dag = DAG(
-    dag_id='engrais_ml_eurostat',
+    dag_id="engrais_ml_eurostat",
     default_args=default_args,
-    description='ML Eurostat : prévisions Prophet sur les engrais',
-    schedule_interval='@weekly',
+    description="ML Eurostat : prévisions Prophet sur les engrais",
+    schedule_interval="@weekly",
     start_date=datetime(2026, 1, 13),
     catchup=False,
-    tags=['eurostat', 'engrais', 'ml', 'prophet'],
+    tags=["eurostat", "engrais", "ml", "prophet"],
 )
 
 # ─────────────────────────────────────────
@@ -33,8 +34,8 @@ MODELS_DIR = "/opt/airflow/models/prophet"  # Dossier de sérialisation des mod�
 # CREATE OUTPUT TABLES
 # ─────────────────────────────────────────
 create_ml_tables = SQLExecuteQueryOperator(
-    task_id='create_ml_tables',
-    conn_id='postgres_default',
+    task_id="create_ml_tables",
+    conn_id="postgres_default",
     sql="""
     -- Table des prévisions Prophet
     CREATE TABLE IF NOT EXISTS eurostat_predictions (
@@ -91,6 +92,7 @@ create_ml_tables = SQLExecuteQueryOperator(
 def run_prophet_forecasts(db_conn_str, forecast_horizon, min_years, models_dir, **context):
     import os
     import pickle
+
     import pandas as pd
     from prophet import Prophet
     from prophet.diagnostics import cross_validation, performance_metrics
@@ -122,22 +124,23 @@ def run_prophet_forecasts(db_conn_str, forecast_horizon, min_years, models_dir, 
     )
 
     target_columns = [
-        ("valeur_mineral",       "mineral"),
-        ("valeur_bilan_inputs",  "bilan_inputs"),
+        ("valeur_mineral", "mineral"),
+        ("valeur_bilan_inputs", "bilan_inputs"),
         ("valeur_bilan_outputs", "bilan_outputs"),
-        ("valeur_bilan_net",     "bilan_net"),
+        ("valeur_bilan_net", "bilan_net"),
     ]
 
     # ── Boucle principale par série ──────────────────────────────────────────
     for col, indicateur in target_columns:
         for (pays, nutriment), group in df.groupby(["pays", "nutriment"]):
-
             serie_label = f"{pays}/{nutriment}/{indicateur}"
             serie = group[["annee", col]].dropna().sort_values("annee")
 
             # — Vérification du nombre minimum de points —
             if len(serie) < min_years:
-                logging.info(f"SKIP {serie_label}: seulement {len(serie)} points (min={min_years}).")
+                logging.info(
+                    f"SKIP {serie_label}: seulement {len(serie)} points (min={min_years})."
+                )
                 series_skipped += 1
                 continue
 
@@ -155,10 +158,7 @@ def run_prophet_forecasts(db_conn_str, forecast_horizon, min_years, models_dir, 
                 model.fit(df_prophet)
 
                 # — Sérialisation du modèle —
-                model_path = os.path.join(
-                    models_dir,
-                    f"{pays}_{nutriment}_{indicateur}.pkl"
-                )
+                model_path = os.path.join(models_dir, f"{pays}_{nutriment}_{indicateur}.pkl")
                 with open(model_path, "wb") as f:
                     pickle.dump(model, f)
                 logging.info(f"Modèle sauvegardé : {model_path}")
@@ -185,17 +185,19 @@ def run_prophet_forecasts(db_conn_str, forecast_horizon, min_years, models_dir, 
                             f"NEGATIVE {serie_label} année={year} : yhat={yhat:.0f} — flaggé."
                         )
 
-                    all_predictions.append({
-                        "annee":       year,
-                        "pays":        pays,
-                        "nutriment":   nutriment,
-                        "indicateur":  indicateur,
-                        "yhat":        yhat,
-                        "yhat_lower":  yhat_lower,
-                        "yhat_upper":  yhat_upper,
-                        "is_forecast": is_forecast,
-                        "is_negative": is_negative,
-                    })
+                    all_predictions.append(
+                        {
+                            "annee": year,
+                            "pays": pays,
+                            "nutriment": nutriment,
+                            "indicateur": indicateur,
+                            "yhat": yhat,
+                            "yhat_lower": yhat_lower,
+                            "yhat_upper": yhat_upper,
+                            "is_forecast": is_forecast,
+                            "is_negative": is_negative,
+                        }
+                    )
 
                 # — Cross-validation temporelle pour les métriques —
                 # Seulement si on a assez de points (≥ 15) pour que la CV soit fiable
@@ -211,15 +213,17 @@ def run_prophet_forecasts(db_conn_str, forecast_horizon, min_years, models_dir, 
                         df_perf = performance_metrics(df_cv)
                         last_row = df_perf.tail(1)
 
-                        all_metrics.append({
-                            "pays":       pays,
-                            "nutriment":  nutriment,
-                            "indicateur": indicateur,
-                            "mae":        round(float(last_row["mae"].values[0]), 2),
-                            "rmse":       round(float(last_row["rmse"].values[0]), 2),
-                            "coverage":   round(float(last_row["coverage"].values[0]), 4),
-                            "n_points":   len(serie),
-                        })
+                        all_metrics.append(
+                            {
+                                "pays": pays,
+                                "nutriment": nutriment,
+                                "indicateur": indicateur,
+                                "mae": round(float(last_row["mae"].values[0]), 2),
+                                "rmse": round(float(last_row["rmse"].values[0]), 2),
+                                "coverage": round(float(last_row["coverage"].values[0]), 4),
+                                "n_points": len(serie),
+                            }
+                        )
                         logging.info(
                             f"CV {serie_label}: MAE={last_row['mae'].values[0]:.0f}, "
                             f"coverage={last_row['coverage'].values[0]:.2f}"
@@ -261,23 +265,27 @@ def run_prophet_forecasts(db_conn_str, forecast_horizon, min_years, models_dir, 
                     is_negative  = EXCLUDED.is_negative,
                     predicted_at = NOW()
                 """),
-                r.to_dict()
+                r.to_dict(),
             )
 
-    logging.info(f"Prophet: {len(all_predictions)} prévisions sauvegardées ({n_negative} négatives flaggées).")
+    logging.info(
+        f"Prophet: {len(all_predictions)} prévisions sauvegardées ({n_negative} négatives flaggées)."
+    )
 
     # ── Clamp des valeurs négatives à 0 ──────────────────────────────────────
     # Les prédictions négatives sont physiquement impossibles pour mineral/
     # bilan_inputs/bilan_outputs — on les force à 0 après insertion.
     if n_negative > 0:
         with engine.begin() as conn:
-            conn.execute(text("""
+            conn.execute(
+                text("""
                 UPDATE eurostat_predictions
                 SET yhat       = 0,
                     yhat_lower = 0,
                     yhat_upper = GREATEST(yhat_upper, 0)
                 WHERE is_negative = TRUE
-            """))
+            """)
+            )
         logging.info(f"{n_negative} prédictions négatives clampées à 0.")
 
     # ── Sauvegarde des métriques en base ─────────────────────────────────────
@@ -299,7 +307,7 @@ def run_prophet_forecasts(db_conn_str, forecast_horizon, min_years, models_dir, 
                         n_points   = EXCLUDED.n_points,
                         trained_at = NOW()
                     """),
-                    r.to_dict()
+                    r.to_dict(),
                 )
         logging.info(f"Métriques sauvegardées pour {len(all_metrics)} séries.")
 
@@ -323,13 +331,13 @@ def run_prophet_forecasts(db_conn_str, forecast_horizon, min_years, models_dir, 
                 run_at               = NOW()
             """),
             {
-                "run_id":                run_id,
-                "series_ok":             series_ok,
-                "series_skipped":        series_skipped,
-                "series_failed":         series_failed,
-                "predictions_total":     len(all_predictions),
-                "predictions_negative":  n_negative,
-            }
+                "run_id": run_id,
+                "series_ok": series_ok,
+                "series_skipped": series_skipped,
+                "series_failed": series_failed,
+                "predictions_total": len(all_predictions),
+                "predictions_negative": n_negative,
+            },
         )
 
     logging.info(
@@ -339,13 +347,13 @@ def run_prophet_forecasts(db_conn_str, forecast_horizon, min_years, models_dir, 
 
 
 prophet_task = PythonOperator(
-    task_id='run_prophet_forecasts',
+    task_id="run_prophet_forecasts",
     python_callable=run_prophet_forecasts,
     op_kwargs={
-        "db_conn_str":      DB_CONN_STR,
+        "db_conn_str": DB_CONN_STR,
         "forecast_horizon": FORECAST_HORIZON_YEARS,
-        "min_years":        MIN_YEARS_REQUIRED,
-        "models_dir":       MODELS_DIR,
+        "min_years": MIN_YEARS_REQUIRED,
+        "models_dir": MODELS_DIR,
     },
     dag=dag,
 )
