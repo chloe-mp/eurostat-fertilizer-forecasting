@@ -73,9 +73,9 @@ The project follows a **medallion lakehouse** pattern (Bronze / Silver
     └────────┬─────────┘         │
              ▼                   │
     ┌──────────────────┐         │
-    │  SILVER           │        │
-    │  (cleaning,       │        │
-    │   aggregation)    │        │
+    │  SILVER          │         │
+    │  (cleaning,      │         │
+    │   aggregation)   │         │
     └────────┬─────────┘         │
              ▼                   ▼
             ┌──────────────────────┐
