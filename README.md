@@ -3,7 +3,7 @@
 End-to-end ML pipeline forecasting fertilizer usage across the EU,
 built on public Eurostat data.
 
-🚧 README in progress — full documentation coming soon.
+README in progress — full documentation coming soon.
 
 ## Stack
 
