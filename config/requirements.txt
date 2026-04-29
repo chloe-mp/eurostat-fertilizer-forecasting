@@ -1,9 +1,18 @@
-google-api-core
-google-cloud-core
-google-cloud-documentai
-polars
-gcsfs
-google-api-python-client
-google-auth
-anthropic
-python-dotenv
+# Data ingestion & processing
+polars==1.12.0
+pandas==2.2.3
+requests==2.32.3
+
+# Database
+psycopg2-binary==2.9.10
+
+# ML / Forecasting
+prophet==1.1.6
+scikit-learn==1.5.2
+
+# Validation
+pydantic==2.9.2
+
+# Dashboard
+streamlit==1.39.0
+plotly==5.24.1
